@@ -18,7 +18,7 @@ def serialPorts():
 
     # Abre se o SO for Windows
     if sys.platform.startswith('win'):  
-        ports = ['COM%s' % (i + 1) for i in range(256)]
+        ports = ['COM%s' % (i + 1) for i in range(25)]
     
     # Abre se o SO for Linux
     elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):

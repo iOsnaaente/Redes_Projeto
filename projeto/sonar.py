@@ -49,23 +49,32 @@ def GtoR(grau):
 	return grau*0.01745
 
 
-def plot_Piece(raio, angulo=[0,0], cor_=0):
+def drawPiece(raio, angulo=[0,0], cor_=0):
 
 	(x,y) = center
+	raioMax = 250
 	
 	angulo[0] = GtoR(angulo[0])
 	angulo[1] = GtoR(angulo[1])
 
 	xo,x1 = raio*math.cos(angulo[1]), raio*math.cos(angulo[0])
 	yo,y1 = raio*math.sin(angulo[1]), raio*math.sin(angulo[0])
-	xob,x1b = 250*math.cos(angulo[1]), 250*math.cos(angulo[0])
-	yob,y1b = 250*math.sin(angulo[1]), 250*math.sin(angulo[0])
+	xob,x1b = raioMax*math.cos(angulo[1]), raioMax*math.cos(angulo[0])
+	yob,y1b = raioMax*math.sin(angulo[1]), raioMax*math.sin(angulo[0])
 	
 	pygame.draw.polygon(screen, cor["vermelho"], [[x,y], [x+xob,y-yob],[x+x1b,y-y1b]],0)
 	pygame.draw.polygon(screen, cor["verde"]   , [[x,y], [x+xo,y-yo],[x+x1,y-y1]],4)
 	pygame.draw.line   (screen, cor["preto"]   , [x+xob,y-yob], [x+x1b,y-y1b],5) 
 	pygame.draw.line   (screen, cor["preto"]   , [x+xo,y-yo], [x+x1,y-y1],5) 
- 
+
+	num = 5
+	for i in range(1,num):
+		pygame.draw.arc(screen, cor["preto"], [x-(i*50),y-(i*50), 2*(i*50),2*(i*50)], 0, GtoR(190), 1)
+		x1 = 250*math.cos(GtoR((180/num)*i))
+		y1 = 250*math.sin(GtoR((180/num)*i))
+		pygame.draw.line(screen, cor['preto'], [x,y], [x+x1,y-y1], 1)
+
+
 
 from SerialShark import *
 
@@ -189,17 +198,14 @@ while True:
 			if angulo == 180:
 				angulo = 0
 			value = value +1
-			piece_radial[angulo] = 100*math.cos(GtoR(value)) + 100*math.sin(GtoR(value))**2
+			piece_radial[angulo] = 100*math.cos(GtoR(value)) + 100*math.sin(GtoR(value)) 
 		except:
 			pass
 
 	for i in range(0,180,1):
-		plot_Piece(piece_radial[i], [i,i+1], cor["verde"])		
+		drawPiece(piece_radial[i], [i,i+1], cor["verde"])		
 		if i == angulo :
-			plot_Piece(piece_radial[i], [i  ,i+1], cor["vermelho"])
-
-
+			drawPiece(piece_radial[i], [i ,i+1], cor["vermelho"])
+			
 	pygame.display.update()
 	clock.tick(60)
-
-
