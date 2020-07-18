@@ -9,7 +9,7 @@ except socket.error:
     sys.exit()
 
 host = 'localhost'
-port = 8888
+port = 8080
 
 def sendData(msg):
     #ENVIA A SOLICITAÇÃO
@@ -21,8 +21,17 @@ def sendData(msg):
     #MENSAGEM RECEBIDA
     reply = d[0]
 
-    # 'ENDEREÇO' DA RESPOSTA 
-    #addr = d[1] - não usado (já sabemos qual é)
-
-    print ('Servidor retornou: ' + reply)
+    print ('Servidor retornou: ' + str(reply))
     return reply
+
+
+if __name__ == "__main__":
+
+    intState  = 1
+    floatAng  = 180.0101010
+    floatTime = 2.24
+
+    strMsg = str(intState) + ':' + str(floatAng) + ':' + str(floatTime) + '\n'
+
+    msg = bytearray(strMsg.encode())
+    sendData(msg)

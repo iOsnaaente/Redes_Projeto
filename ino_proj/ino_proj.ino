@@ -1,4 +1,3 @@
-
 /*
 *  TRABALHO DE REDES INDUSTRIAIS 
 *
@@ -17,6 +16,7 @@
 *   Primeira atualizaçao.  
 */
 
+
 #include <Servo.h>
 
 #define CM 28 // Constante divisor de Centimetros
@@ -28,6 +28,7 @@
 #define REMOTO   1 
 
 #define BUFFER_LEN 32
+#include "Led_H.h"
 
 // PINOS DO ULTRASSONICO
 const int VCCS = 3;
@@ -39,11 +40,9 @@ const int GNDS = 6;
 const int GNDP  = A4;
 const int SINAL = A6;
 
-// PINOS DOS LEDS
-const int LED_Verm = A3;
-const int LED_Amar = A2;
-const int LED_Verd = A1;
-const int LED_Comu = A0;
+// INICIA A CLASSE LED (RED, GREEN, BLUE, COMUM) 
+LedRGB led(A3,A2,A1,A0);
+led.isAnalog();
 
 // BOTÃO 
 const int BOT = 2;
@@ -136,27 +135,27 @@ void loop(){
   if (processDefinition == REMOTO){
     // MODO REMOTO - ANGULO PEGO ATRAVES DO SERIAL
     angulo = byte2float(serialReadArray, 0);
-    LedsConfig(0,1,0);
+    led.set(0,1,0);
   
   }else if (processDefinition == MANUAL){                 
     // MODO MANUAL - POTENCIOMETRO GIRANDO MANUALMENTE
     angulo = map(analogRead(SINAL), 0, 1023, 0, 180);
-    LedsConfig(1,0,0);
+    led.set(1,0,0);
   
   }else if (processDefinition == AUTO){
     // MODO AUTOMTICO - LAÇO DE REPETIÇAO FOR
     angulo > 180 ? angulo = 0 : angulo++;
-    LedsConfig(0,0,1);
+    led.set(0,0,1);
   }
 
   servito.write((int)angulo);
-  Serial.print((int)angulo);
-  Serial.print(",");
   Serial.print(processKeepAlive);
   Serial.print(",");
   Serial.print(processDefinition);
   Serial.print(",");
-  Serial.println( (int)(lerDistancia(100)*100 ));
+  Serial.print(angulo);
+  Serial.print(",");
+  Serial.println( (int)(lerDistancia(100)*100) );
   delay(25);
   
   // PARA O PROCESSO LEVAR APENAS 1 SEGUNDO FAZEMOS A COMPENSAÇAO 
@@ -175,7 +174,7 @@ void botEmergencia(){
 /// READ THE SERIAL BUFFER
 byte *readSerial(){
   if (Serial.available()){
-    char lineReadSerial[BUFFER_LEN];
+    char *lineReadSerial[BUFFER_LEN];
     Serial.readBytesUntil('F', (char*)lineReadSerial, sizeof(lineReadSerial));
     if (lineReadSerial[0]=='I')
       return (byte *)lineReadSerial;
@@ -226,10 +225,4 @@ float byte2float(byte *byteValues){
     return fvalue;
 }
 
-// CONFIGURAÇAO DOS LEDS
-void LedsConfig(bool ledVerm, bool ledAmar, bool ledVerd){
-  ledVerm ? analogWrite(LED_Verm, 150) : analogWrite(LED_Verm, 0);
-  ledAmar ? analogWrite(LED_Amar, 150) : analogWrite(LED_Amar, 0);
-  ledVerd ? analogWrite(LED_Verd, 150) : analogWrite(LED_Verd, 0);
-}
 
