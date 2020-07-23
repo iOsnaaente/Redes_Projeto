@@ -10,38 +10,12 @@ center = [screen_dimensions[0]/2, screen_dimensions[1]]
 
 BAUDRATE = 9600
 
-comportList      = showSerialAvailable()
+comportList = showSerialAvailable()
 comport = serial.Serial()
 
 flagComport = False
 
 surfaceListPorts = []
-
-def detectPortSelect(coords = [0,0], flag = 0):
-	try:
-		for surface in surfaceListPorts:
-			if coords[0] >= surface[0] and coords[0] <= surface[0]+200:
-				if coords[1] >= surface[1] and coords[1] <= surface[1]+30:
-					print("Comport found!!")
-					comport = initSerialListening(surface[-1], BAUDRATE, 1)
-					return comport
-		return serial.Serial()
-	except:
-		comport = serial.Serial()
-		attPortsAvailable()
-
-def detectPortClose(coords = [0,0], flag = 0):
-	surface = [screen_dimensions[0]-110, screen_dimensions[1]-30]
-	if flagComport is True:
-		if coords[0] >= surface[0] and coords[0] <= surface[0]+100:
-			if coords[1] >= surface[1] and coords[1] <= surface[1]+30:
-				closeSerialConnection(comport)
-
-def attPortsAvailable():
-	surfaceListPorts = []
-	comportList = showSerialAvailable()
-
-
 
 class Color:
 	white =  [255, 255, 255]
@@ -111,7 +85,7 @@ def drawText():
 	screen.blit(txtPortas, (5,5))
 
 	if flagComport is True:		
-		txtConexao = drawRetangulo(textFonte15, [110,30], "Encerrar COM Port", cor.red)
+		txtConexao = drawRetangulo(textFonte15, [110,30], "Encerrar COM Port", cor.blue)
 		screen.blit(txtConexao, (screen_dimensions[0]-120, screen_dimensions[1]-40))
 		txtConexao = drawRetangulo(textFonte, [210,30], str(comport.name), cor.green)
 	else:
@@ -129,24 +103,18 @@ def drawText():
 			surfaceListPorts.append([5, (num+1)*30 +10, port])
 	
 
-where = []
+optionPos = []
 def drawProcessOptions(process):
-	options = ['DEMO', 'REMOTO', 'AUTOMÁTICO', 'MANUAL']
-	where = []
+	options = ['DEMO', 'REMOTO', 'AUTOMÁTICO']
+	optionPos = []
 	for i in range(len(options)):
 		txtOption = drawRetangulo(pygame.font.SysFont(systemFont,22), [110,30], options[i], cor.red if process is not i else cor.green)
 		screen.blit(txtOption, (screen_dimensions[0]-120, 5 + 40*i))
-		where.append([screen_dimensions[0]-120,  5+ 40*i])
-	return where
+		optionPos.append([screen_dimensions[0]-120,  5+ 40*i])
+	return optionPos
 
-def detectProcessOption(coord = [0,0], _where = [0,0]):
-	for surface in _where:
-		if coords[0] >= surface[0] and coords[0] <= surface[0]+110:
-			if coords[1] >= surface[1] and coords[1] <= surface[1]+30:
-				print(where.index(surface))
-				return where.index(surface)
-	return process
 
+# INICIANDO PROCESSO NO PYGAME
 pygame.init()
 
 pygame.font.init()
@@ -155,7 +123,7 @@ systemFont = pygame.font.get_default_font()
 screen = pygame.display.set_mode(screen_dimensions)
 
 pygame.display.set_caption("Teste de sensor de proximidade")
-pygame.display.set_icon(pygame.image.load("./icon.png"))
+pygame.display.set_icon(pygame.image.load("./.icon.png"))
 
 clock = pygame.time.Clock()
 
@@ -166,6 +134,8 @@ raio = 0
 value = 0 
 process = 0
 
+surfaceClosePort = [screen_dimensions[0]-120, screen_dimensions[1]-40]
+
 while True:
 	screen.fill(cor.lightGray)
 	for event in pygame.event.get():
@@ -175,51 +145,66 @@ while True:
 			if event.key == pygame.K_ESCAPE:
 				pygame.quit()
 			if event.key == pygame.K_a:
-				listaPortas = showSerialAvailable()
+				surfaceListPorts = []
+				comportList = showSerialAvailable()
 
 		if pygame.mouse.get_pressed()[0]:
 			coords = pygame.mouse.get_pos()
-			detectPortClose(coords, flagComport)
-			comport = detectPortSelect(coords, flagComport)
-			process = detectProcessOption(coords, where)
 
+			for surface in optionPos:
+				if coords[0] >= surface[0] and coords[0] <= surface[0]+110:
+					if coords[1] >= surface[1] and coords[1] <= surface[1]+30:
+						process = optionPos.index(surface)       
 
-	drawText()
-	where = drawProcessOptions(process)
+			if flagComport == False:
+				for surface in surfaceListPorts:
+					if coords[0] >= surface[0] and coords[0] <= surface[0]+200:
+						if coords[1] >= surface[1] and coords[1] <= surface[1]+30:    
+							print("Comport found!!")
+							comport = initSerialListening(surface[-1], BAUDRATE, 1)
+							flagComport = True
+			else:
+				if coords[0] >= surfaceClosePort[0] and coords[0] <= surfaceClosePort[0]+100:
+					if coords[1] >= surfaceClosePort[1] and coords[1] <= surfaceClosePort[1]+30:
+						closeSerialConnection(comport)
+						flagComport = False
 
-	if comport.is_open is True:
-		flagComport = True
-		try:	
-			angulo, raio = getSerialValues(comport)
-			raio = raio if raio<250 else 250
-			piece_radial[angulo] = raio/100
-		except:
-			print("ERRO NA CONVERSÃO DA SERIAL")
-	else:
+	try:
+		if comport.is_open is True:
+			flagComport = True
+		else:
+			flagComport = False
+	except:
+		print("Erro inesperado na Comport, encerrando a porta serial!")
 		flagComport = False
 
+	if flagComport is False:
+		process = 0
+
+	#DEMO
+	if process == 0:
+		try:
+			angulo = angulo +1 if angulo < 180 else 0 
+			piece_radial[angulo] = abs(angulo*cos(radians(angulo))) + random.randint(-20,75) if piece_radial[angulo] < 250 else 250
+			print(piece_radial[angulo])
+		except:
+			pass
+	
+	# REMOTO
+	elif process == 1:
+		if flagComport is True:
+			pass 
+
+	# AUTOMÁTICO
+	elif process == 2:
+		if flagComport is True:
+			pass
+
+	drawText()
+	optionPos = drawProcessOptions(process)
 
 	for i in range(0,180,1):
 		drawPiece(piece_radial[i], [i,i+1])
 			
 	pygame.display.update()
 	clock.tick(60)
-	
-def processDEMO():
-	try:
-		angulo = angulo +1
-		if angulo == 180:
-			angulo = 0
-		value = value +1
-		piece_radial[angulo] = 100*cos(radians(value)) + 100*sin(radians(value)) 
-	except:
-		pass
-
-def processAUTO():
-	pass
-
-def processREMOTO():
-	pass
-
-def processMANUAL():
-	pass

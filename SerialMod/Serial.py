@@ -58,6 +58,20 @@ def initSerialListening(DEVICE, BAUDRATE, TIMEOUT):
     comport = serial.Serial(DEVICE, BAUDRATE, timeout=TIMEOUT)
     return comport
 
+
+def getSerialValues(comport):
+
+    VALUE_SERIAL = str(comport.readline()).split(",")
+
+    VALUE_SERVO = VALUE_SERIAL[0].split("b'")[-1]
+    VALUE_SONAR = VALUE_SERIAL[-1].replace("\\r\\n'", "")
+
+    VALUE_SERVO = int(VALUE_SERVO)
+    VALUE_SONAR = int(VALUE_SONAR)
+    
+    return [VALUE_SERVO,VALUE_SONAR]
+
+
 def closeSerialConnection(comport):
     # Fechando conexao serial
     comport.close()
