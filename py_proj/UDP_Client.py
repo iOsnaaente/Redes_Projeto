@@ -39,8 +39,8 @@ if __name__ == "__main__":
     intState  = 1
     floatAng  = 180.0101010
     floatTime = 2.24
-
-    strMsg = str(intState) + ':' + str(floatAng) + ':' + str(floatTime) + '\n'
+    while True:
+        strMsg = str(intState) + ':' + str(floatAng) + ':' + str(floatTime) + '\n'
 
     reply = sendAndListening(strMsg)
 
