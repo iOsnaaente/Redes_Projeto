@@ -123,7 +123,7 @@ systemFont = pygame.font.get_default_font()
 screen = pygame.display.set_mode(screen_dimensions)
 
 pygame.display.set_caption("Teste de sensor de proximidade")
-pygame.display.set_icon(pygame.image.load("./.icon.png"))
+pygame.display.set_icon(pygame.image.load("../.icon.png"))
 
 # CLOCK COM 60 HZ DE ATUALIZAÇÃO 
 clock = pygame.time.Clock()
