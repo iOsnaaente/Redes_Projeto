@@ -13,8 +13,9 @@ port = 8080
 MAX_MESSAGE_LENGTH = 1024
 
 # TENTA CRIAR O SOCKET UDP - SEMELHANTE AO DE CPP
-try:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+try:	
+	socket.setdefaulttimeout(1/5)
+	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 except socket.error:
     print("Failed to create socket")
@@ -34,6 +35,7 @@ class Color:
 	green =  [  0, 200,   0]
 	blue  =  [ 50,  50, 200]
 	red   =  [200,   0,   0]
+	orange = [ 255, 127,  0]
 	lightGray = [200,200,200]
 
 cor = Color()
@@ -94,6 +96,16 @@ def drawProcessOptions(process):
 		optionPos.append([screen_dimensions[0]-120,  5+ 40*i])
 	return optionPos
 
+def drawConnection(str):
+	font = pygame.font.SysFont(systemFont,22)
+	if str == "DISCONNECTED":
+		conn = drawRetangulo(font, [150, 30], str, cor.red, [10,10] )
+	elif str == "CONNECTED":
+		conn = drawRetangulo(font, [150, 30], str, cor.green, [10,10] )
+	else: 
+		conn = drawRetangulo(font, [150, 30], str, cor.orange, [10,10] )
+	screen.blit(conn, [screen_dimensions[0]/2 - 75, 5])
+
 
 # SEND AND LISTEN - FUNÇÃO UDP 
 def sendAndListening(msg):	
@@ -125,9 +137,7 @@ screen = pygame.display.set_mode(screen_dimensions)
 pygame.display.set_caption("Teste de sensor de proximidade")
 pygame.display.set_icon(pygame.image.load("../.icon.png"))
 
-# CLOCK COM 60 HZ DE ATUALIZAÇÃO 
 clock = pygame.time.Clock()
-
 
 # VARIÁVEIS UTILIZADAS 
 x,y = 0,0
@@ -146,7 +156,9 @@ sliderPos = [posRel[0]/2 + 2, posRel[1]+1]
 flagSlider = False 
 
 auto_pos = 1
+desconnect = 0
 
+dots = ''
 
 while True:
 	# COLORIR O PLANO DE FUNDO COM A COR CINZA
@@ -226,24 +238,43 @@ while True:
 
 	# USA A CONEXÃO UDP SE FOR AUTO OU REMOTO 
 	if process != 0:
-		# RECEBE OS VALORES DO SERVIDO - EXEMPLO [ ' 12 120 34 45']
-		reply = sendAndListening(str(angulo)).decode().split(' ')
-		reply = reply[1:]
+		drawConnection("CONNECTED")
+		try:
+			# RECEBE OS VALORES DO SERVIDO - EXEMPLO [ ' 12 120 34 45']
+			reply = sendAndListening(str(angulo)).decode().split(' ')
+			#reply = int(reply[0])
+			desconnect = 0
+			'''
+			# TRANSFORMA OS VALORES EM ARRAY DE BYTES 
+			reply = bytes([ int(x) for x in reply ])
 
-		# TRANSFORMA OS VALORES EM ARRAY DE BYTES 
-		reply = bytes([ int(x) for x in reply ])
+			# CONVERTE PARA FLOAT 
+			ans = unpack('f', reply)
+			'''
+			# SALVA O VALOR DO ANGULO - CONVERTE FLOAT PARA INT 
+			piece_radial[angulo] = int(reply[0])
 
-		# CONVERTE PARA FLOAT 
-		ans = unpack('f', reply)
+			print("O valor de %i é %i \n" %(angulo, piece_radial[angulo]))
 
-		# SALVA O VALOR DO ANGULO - CONVERTE FLOAT PARA INT 
-		piece_radial[angulo] = int(ans[0])
 
-		print("O valor de %i é %i \n" %(angulo, piece_radial[angulo]))
-
+		except:
+			desconnect = desconnect + 1
+			if desconnect%5 >0:
+				dots = dots + "."
+			else: 
+				dots = "" 
+			drawConnection("CONNECTING"+dots)
+			print("Tentativa de conexão número %s" %desconnect)
+	else: 
+		drawConnection("DISCONNECTED")
+		
+	if desconnect == 20:
+		desconnect = 0
+		process = 0 
 
 	# DESENHA NA TELA AS OPÇÕES - DEMO REMOTO AUTO 
 	optionPos = drawProcessOptions(process)
+	
 
 	# DESENHA OS PEDAÇOS DO SONAR 
 	for i in range(0,180,1):

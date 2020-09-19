@@ -1,9 +1,5 @@
 from SerialMod.Serial import * 
 import socket
-import sys
-
-from struct import pack
-import time
 
 # USE UDP_IP = '' TO CATH ALL IPS
 # USE UDP_PORT = ARBITRARY NUMBER 
@@ -15,30 +11,9 @@ BUFFER_SIZE = 1024
 flagReceive = 0
 sock = 0
 
-# SERIAL BAUDRATE
-BAUDRATE = 9600
-TIMEOUT = 5000
-
-#FLAG TO SET THE SERIAL
-flagComport = False
 # FLAG TO SET THE UDP CONNECTION
 flagReceive = False
 
-i = 1
-
-while True:
-
-	# PRIMEIRO O SISTEMA PRECISA ESTAR CONECTADO A UMA PORTA SERIAL
-	while flagComport is False:
-		comportList = showSerialAvailable()
-		comport = serial.Serial()
-		option = input("Digite o 'index' da porta serial que deseja conectar ou qualquer tecla para atualizar:")
-		try:
-			if int(option) > 0 and int(option) < len(comportList)+1:
-				comport = initSerialListening(comportList[int(option)-1], BAUDRATE, 1)
-				flagComport = True
-		except:
-			pass
 
 	try:
 		# CRIAÇÃO DO SOCKET - SOCK_DGRAM = UDP 

@@ -167,7 +167,7 @@ void loop(){
 
   // PARA O PROCESSO LEVAR APENAS 1 SEGUNDO FAZEMOS A COMPENSAÇAO 
   tempoCompensado = millis() - tempoCorrido;
-  delay(500 - tempoCompensado);
+  delay(100 - tempoCompensado);
 }
 
 
