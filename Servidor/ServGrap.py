@@ -209,25 +209,23 @@ while True:
 
 	drawText()
 	
-
 	# CONTROLE DE CLIENTES
-	numClientesConn = int(len(addrList)/2)
+	numClientesConn = int(len(addrList))
 	modoOperacao = process 
 	Clients(numClientesConn, modoOperacao)
-	
+
+	addrList = []
+
 	try:
-		data, addr = sock.recvfrom(BUFFER_SIZE)
+		dataSock, addr = sock.recvfrom(BUFFER_SIZE)
 		process = modosOperacao.index("REMOTO")
 		disconnected = 0			
-		
-		print("Recebido de %s : %s " %(addr, data) )
 		
 		if addr not in addrList:
 			addrList.append(addr)
 
 		funcao  = b'3'
-		valor   = int(data)
-		print(data[0])
+		valor   = int(dataSock)
 		fim     = b'\n'	
 
 	except:
@@ -241,10 +239,11 @@ while True:
 		funcao  = b'3'
 		valor   = angPos
 		fim     = b'\n'
-		piece_radial[angPos] = random.randint(100,150+angPos)
+		piece_radial[angPos] = random.randint(100,150)
 
 	# SE E SOMENTE SE A COMPORT SERIAL ESTIVER DISNPONÍVEL
 	elif comport.is_open is True:
+		
 		flagComport = True
 		try:
 			# CRIA O PACOTE COM AS INFORMAÇÕES PARA A SERIAL
@@ -262,11 +261,8 @@ while True:
 			data[-1] = data[-1].replace("\\r\\n'",'')
 			
 			# DEFINIÇÃO FORMAL DA LEITURA
-			angulo    = int(data[0])
+			angulo    = valor
 			distancia = data[-1]
-
-			# CONFIRMAÇÃO DE RECEBIMENTO EM BYTES 
-			print("Angulo = %s  :  Distancia = %s" %(angulo, distancia))
 
 			# TRANSFORMA OS VALORES EM ARRAY DE BYTES 
 			distancia = distancia.split(" ")
@@ -280,10 +276,11 @@ while True:
 			distancia = unpack('f', distancia)
 			distancia = int(distancia[0])
 
-			# VERIFICAÇÃO
-			print("Angulo = %s  :  Distancia = %s" %(angulo, distancia))
 
-			# SALVA O VALOR DO ANGULO - CONVERTE FLOAT PARA INT 
+			# CONFIRMAÇÃO DE RECEBIMENTO EM BYTES -> PRINT
+			print("Recebido de %s : %s -> Angulo= %s : Distancia Ard= %s : Distancia Mon= %s" %(addr, dataSock, angulo, distancia, addr[1] % 250 ))
+
+			distancia =  addr[1] % 250 
 			piece_radial[angulo] = distancia
 	
 		except:
@@ -295,15 +292,12 @@ while True:
 
 
 	if process == modosOperacao.index("REMOTO"):
-		# ENVIANDO A RESPOSTA DE VOLTA
-
 		str_send = str(distancia).encode()
 		sock.sendto(str_send, addr)
 
 
 	for i in range(0,180,1):
 		drawPiece(piece_radial[i], [i,i+1])
-			
+	
 	pygame.display.update()
 	clock.tick(120)
-
