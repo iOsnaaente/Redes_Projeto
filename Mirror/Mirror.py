@@ -14,7 +14,7 @@ MAX_MESSAGE_LENGTH = 1024
 
 # TENTA CRIAR O SOCKET UDP - SEMELHANTE AO DE CPP
 try:	
-	socket.setdefaulttimeout(1/5)
+	socket.setdefaulttimeout(1/2)
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 except socket.error:
@@ -23,7 +23,7 @@ except socket.error:
 
 
 # DEFINIÇÕES PARA AS DIMENSÕES DA TELA
-screen_dimensions = [20*40,20*20]
+screen_dimensions = [20*30,20*15]
 center = [screen_dimensions[0]/2, screen_dimensions[1]]
 
 
@@ -88,7 +88,7 @@ def drawRetangulo(fonte, dim = [0,0], texto="", cor = [0,0,0], enquadro=[5,5]):
 # FUNÇÃO QUE DESENHA AS OPÇÕES DE CONTROLE DO PROGRAMA
 optionPos = []
 def drawProcessOptions(process):
-	options = ['DEMO', 'REMOTO', 'AUTOMÁTICO']
+	options = ['DEMO', 'REMOTO']
 	optionPos = []
 	for i in range(len(options)):
 		txtOption = drawRetangulo(pygame.font.SysFont(systemFont,22), [110,30], options[i], cor.red if process is not i else cor.green)
@@ -105,25 +105,6 @@ def drawConnection(str):
 	else: 
 		conn = drawRetangulo(font, [150, 30], str, cor.orange, [10,10] )
 	screen.blit(conn, [screen_dimensions[0]/2 - 75, 5])
-
-
-# SEND AND LISTEN - FUNÇÃO UDP 
-def sendAndListening(msg):	
-
-    #CODIFICA A MENSAGEM EM ARRAY DE BYTES
-    msg = bytearray(msg.encode())
-
-    #ENVIA A SOLICITAÇÃO
-    s.sendto(msg, (host, port))
-
-    #AGUARDA A RESPOSTA
-    d = s.recvfrom(MAX_MESSAGE_LENGTH)
-
-    #MENSAGEM RECEBIDA
-    reply = d[0]
-
-    print ('Servidor retornou: ' + str(reply))
-    return reply
 
 
 # INICIANDO PROCESSO NO PYGAME
@@ -157,6 +138,7 @@ flagSlider = False
 
 auto_pos = 1
 desconnect = 0
+distancia = 0
 
 dots = ''
 
@@ -187,19 +169,11 @@ while True:
 				if coords[0] >= surface[0] and coords[0] <= surface[0]+110:
 					if coords[1] >= surface[1] and coords[1] <= surface[1]+30:
 						process = optionPos.index(surface)
-			
-			# CONTROLE DO SLIDER
-			if process == 1:
-				if coords[0] >= sliderPos[0] and coords[0] <= sliderPos[0]+dim[0]:
-					if coords[1] >= posRel[1] and coords[1] <= posRel[1]+180:
-						sliderPos[1] = coords[1]
-						if sliderPos[1] > posRel[1]+180:
-							sliderPos[1] =  posRel[1]+180
-						if sliderPos[1] < posRel[1]:
-							sliderPos[1] = posRel[1] +1
+	
 
 	#DEMO
 	if process == 0:
+		drawConnection("DISCONNECTED")
 		try:
 			angulo = angulo +1 if angulo < 180 else 0 
 			piece_radial[angulo] = abs(angulo*cos(radians(angulo))) + random.randint(-20,75) if piece_radial[angulo] < 250 else 250
@@ -207,55 +181,39 @@ while True:
 		except:
 			pass
 	
-	# REMOTO
-	elif process == 1:
 
-		fonte = pygame.font.SysFont(systemFont,30)
-
-		# DESENHA A LINHA ONDE ESTARÁ O SLIDER
-		pygame.draw.line(screen, cor.gray, posRel, [posRel[0], posRel[1]+180], 6) 
-		
-		txtOption = drawRetangulo(fonte, dim, "Angulo", cor.blue)
-		screen.blit(txtOption, offset)
-		angulo = sliderPos[1] - posRel[1]
-		slider = drawRetangulo(fonte, [50, 23], str(angulo), cor.green)
-		screen.blit(slider, sliderPos)
-
-	# AUTOMÁTICO
-	elif process == 2:
-
-		auto_pos = auto_pos+1 if auto_pos+1 < 180 else 0 
-		angulo = auto_pos
-		# SEND THE VALUE ANGLE 
-
-		fonte = pygame.font.SysFont(systemFont,30)
-
-		txtOption = drawRetangulo(fonte, dim, "Angulo", cor.blue)
-		screen.blit(txtOption, offset)
-		
-		ang = drawRetangulo(fonte, [50, 23], str(angulo), cor.green)
-		screen.blit(ang, [sliderPos[0], posRel[1]+10])
-
-	# USA A CONEXÃO UDP SE FOR AUTO OU REMOTO 
-	if process != 0:
+		 
+	else:
+		# USA A CONEXÃO UDP SE FOR AUTO OU REMOTO
 		drawConnection("CONNECTED")
-		try:
-			# RECEBE OS VALORES DO SERVIDO - EXEMPLO [ ' 12 120 34 45']
-			reply = sendAndListening(str(angulo)).decode().split(' ')
-			#reply = int(reply[0])
-			desconnect = 0
-			'''
-			# TRANSFORMA OS VALORES EM ARRAY DE BYTES 
-			reply = bytes([ int(x) for x in reply ])
 
-			# CONVERTE PARA FLOAT 
-			ans = unpack('f', reply)
-			'''
+		try:
+			#CODIFICA A MENSAGEM EM ARRAY DE BYTES
+			msg = bytearray('0'.encode())
+			print(msg)
+
+			#ENVIA A SOLICITAÇÃO
+			s.sendto(msg, (host, port))
+
+			#AGUARDA A RESPOSTA
+			d = s.recvfrom(MAX_MESSAGE_LENGTH)
+
+			#MENSAGEM RECEBIDA
+			reply = d[0]
+
+			print ('Servidor retornou: ' + str(reply))
+			reply = reply.decode().split(' ')
+
+			angulo = int(reply[0])
+			distancia = int(reply[1])
+
+
+			desconnect = 0
+
 			# SALVA O VALOR DO ANGULO - CONVERTE FLOAT PARA INT 
-			piece_radial[angulo] = int(reply[0])
+			piece_radial[angulo] = distancia
 
 			print("O valor de %i é %i \n" %(angulo, piece_radial[angulo]))
-
 
 		except:
 			desconnect = desconnect + 1
@@ -265,10 +223,9 @@ while True:
 				dots = "" 
 			drawConnection("CONNECTING"+dots)
 			print("Tentativa de conexão número %s" %desconnect)
-	else: 
-		drawConnection("DISCONNECTED")
+	
 		
-	if desconnect == 20:
+	if desconnect == 10:
 		desconnect = 0
 		process = 0 
 

@@ -12,6 +12,8 @@ import time
 UDP_IP = '127.0.0.1'
 UDP_PORT = 8080
 
+NUM_MAX_CLIENTS = 10 
+
 # DEFINE THE BUFFER SIZE
 BUFFER_SIZE = 1024
 flagReceive = 0
@@ -21,7 +23,7 @@ sock = 0
 flagReceive = False
 
 try:
-	socket.setdefaulttimeout(1/5)
+	socket.setdefaulttimeout(1/10)
 	# CRIAÇÃO DO SOCKET - SOCK_DGRAM = UDP 
 	sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -177,6 +179,8 @@ disconnected = 0
 
 addrList = []
 
+msg_Padrao = ''
+
 
 # CÓDIGO RODANDO 
 while True:
@@ -213,27 +217,42 @@ while True:
 	numClientesConn = int(len(addrList))
 	modoOperacao = process 
 	Clients(numClientesConn, modoOperacao)
-
+	
+	routine = 0
 	addrList = []
 
-	try:
-		dataSock, addr = sock.recvfrom(BUFFER_SIZE)
-		process = modosOperacao.index("REMOTO")
-		disconnected = 0			
+	temp1 = time.time()
+
+	while True: 
+		temp2 = time.time()
+		if (temp2 - temp1 > 0.1): break
+
+		try:
+			dataSock, addr = sock.recvfrom(BUFFER_SIZE)
+			process = modosOperacao.index("REMOTO")
+
+			disconnected = 0			
 		
-		if addr not in addrList:
-			addrList.append(addr)
+			if dataSock != b'0' :
 
-		funcao  = b'3'
-		valor   = int(dataSock)
-		fim     = b'\n'	
+				funcao  = b'3'
+				valor   = int(dataSock)
+				fim     = b'\n'	
+				addrList.append([0, addr, funcao, valor, fim])
 
-	except:
-		disconnected = disconnected + 1
-		if disconnected > 20:
-			disconnected = 0 
-			process = modosOperacao.index("DEMO") 
-	
+			else:
+				addrList.append([1, addr, 0,0,0])
+
+		except:
+			disconnected = disconnected + 1
+			if disconnected > 20:
+				disconnected = 0 
+				process = modosOperacao.index("DEMO") 
+				break
+		
+	addrList.sort()
+	print(addrList)
+
 	if process == modosOperacao.index("DEMO"):
 		angPos = angPos+1 if angPos+1 < 180 else 0 
 		funcao  = b'3'
@@ -242,58 +261,69 @@ while True:
 		piece_radial[angPos] = random.randint(100,150)
 
 	# SE E SOMENTE SE A COMPORT SERIAL ESTIVER DISNPONÍVEL
-	elif comport.is_open is True:
+	if comport.is_open is True:
 		
 		flagComport = True
-		try:
-			# CRIA O PACOTE COM AS INFORMAÇÕES PARA A SERIAL
-			send = pack('cic', funcao, valor, fim)
+		for client in addrList:
 
-			# ENVIA O PACOTE PELA SERIAL
-			comport.write(send)
+			if client[0] is 0:
+				try:
+					# CRIA O PACOTE COM AS INFORMAÇÕES PARA A SERIAL
+					send = pack('cic', client[2], client[3], client[4])
 
-			# LÊ A RESPOSTA DA SERIAL
-			data = comport.readline()
+					# ENVIA O PACOTE PELA SERIAL
+					comport.write(send)
 
-			# FORMATA A RESPOSTA PARA OS DADOS EM PYTHON
-			data = str(data).split(',')
-			data[0] = data[0].replace("b'", '')
-			data[-1] = data[-1].replace("\\r\\n'",'')
+					# LÊ A RESPOSTA DA SERIAL
+					data = comport.readline()
+
+					# FORMATA A RESPOSTA PARA OS DADOS EM PYTHON
+					data = str(data).split(',')
+					data[0] = data[0].replace("b'", '')
+					data[-1] = data[-1].replace("\\r\\n'",'')
+					
+					# DEFINIÇÃO FORMAL DA LEITURA
+					angulo    = client[3]
+					distancia = data[-1]
+
+					# TRANSFORMA OS VALORES EM ARRAY DE BYTES 
+					distancia = distancia.split(" ")
+					distancia.remove('')
+					distancia = [ int(x) for x in distancia]
+
+					# ARRAY DE BYTES
+					distancia = bytes(distancia)
+					print(distancia)
+
+					# CONVERTE PARA FLOAT 
+					distancia = unpack('f', distancia)
+					distancia = int(distancia[0])
+
+					# CONFIRMAÇÃO DE RECEBIMENTO EM BYTES -> PRINT
+					#print("Recebido de %s : %s -> Angulo= %s : Distancia Ard= %s : Distancia Mon= %s" %(addr, dataSock, angulo, distancia, addr[1] % 250 ))
+
+					distancia =  client[1][1] % 250 
+					piece_radial[angulo] = distancia
+
+					str_send = (str(angulo)+str(' ')+str(distancia)).encode()
+					sock.sendto(str_send, client[1])
+
+					msg_Padrao = str_send
 			
-			# DEFINIÇÃO FORMAL DA LEITURA
-			angulo    = valor
-			distancia = data[-1]
+				except:
+					print("SERIAL INVÁLIDA!")
 
-			# TRANSFORMA OS VALORES EM ARRAY DE BYTES 
-			distancia = distancia.split(" ")
-			distancia.remove('')
-			distancia = [ int(x) for x in distancia]
-
-			# ARRAY DE BYTES
-			distancia = bytes(distancia)
-
-			# CONVERTE PARA FLOAT 
-			distancia = unpack('f', distancia)
-			distancia = int(distancia[0])
-
-
-			# CONFIRMAÇÃO DE RECEBIMENTO EM BYTES -> PRINT
-			print("Recebido de %s : %s -> Angulo= %s : Distancia Ard= %s : Distancia Mon= %s" %(addr, dataSock, angulo, distancia, addr[1] % 250 ))
-
-			distancia =  addr[1] % 250 
-			piece_radial[angulo] = distancia
-	
-		except:
-			print("SERIAL INVÁLIDA!")
+			else:
+				try:
+					sock.sendto(msg_Padrao, client[1])
+				except:
+					sock.sendto(str("0 0").encode(), client[1])
+					print("Sem entidade de controle")
+			print(msg_Padrao)
 
 	else:
 		flagComport = False
 		process = modosOperacao.index('DEMO')
-
-
-	if process == modosOperacao.index("REMOTO"):
-		str_send = str(distancia).encode()
-		sock.sendto(str_send, addr)
 
 
 	for i in range(0,180,1):
