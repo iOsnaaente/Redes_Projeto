@@ -12,29 +12,57 @@ import time
 UDP_IP = '127.0.0.1'
 UDP_PORT = 8080
 
-NUM_MAX_CLIENTS = 10 
-
 # DEFINE THE BUFFER SIZE
 BUFFER_SIZE = 1024
-flagReceive = 0
-sock = 0
 
 # FLAG TO SET THE UDP CONNECTION
 flagReceive = False
 
-try:
-	socket.setdefaulttimeout(1/10)
-	# CRIAÇÃO DO SOCKET - SOCK_DGRAM = UDP 
-	sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+class SOCK:
 
-	# INICIALIZAÇÃO DO SERVIDOR SOCKET
-	sock.bind((UDP_IP, UDP_PORT))
+	BUFF_SIZE = 0
+	timeout = 0
+	addr = (0,0)
+	sd = 0
 
-	# FLAG PARA CONTROLE DE TRANSMISSÕES
-	flagReceive = False
+	dataSock = 0
+	addrConn = 0
 
-except:
-	print("Erro na criação do socket, sugiro que reinicie o processo!!!")
+	def __init__(self, addr, timeout = 1, BUFF_SIZE = 1024):
+		self.BUFF_SIZE = BUFF_SIZE
+		self.timout = timeout
+		self.addr = addr
+		
+		try:
+			socket.setdefaulttimeout(self.timeout) 
+			self.sd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			self.sd.bind(addr)
+
+		except:
+			print("Erro na criação do socket, sugiro que reinicie o processo!!!")
+	
+	def setTimeout(self, timeout):
+		self.timeout = timeout
+		socket.setdefaulttimeout(self.timout)
+
+	def send(self, msg):
+		try:
+			self.sd.sendto(msg, self.addrConn)
+		except:
+			print("Erro para enviar")
+
+	def receive(self):
+		try:
+			self.setTimeout(1/10)
+			self.dataSock, self.addrConn = self.sd.recvfrom(self.BUFF_SIZE)
+			return True
+		except:
+			return False
+
+socketServo = SOCK(('127.0.0.1', UDP_PORT), 1/10)
+socketUltra = SOCK(('127.0.0.7', UDP_PORT+1), 1/10)
+
+
 
 
 # SERIAL DEFINIÇÕES 
@@ -175,12 +203,9 @@ process = modosOperacao.index('DEMO')
 angPos = 0 
 angulo = 0
 
-disconnected = 0 
+disconnected = 0
 
-addrList = []
-
-msg_Padrao = ''
-
+numClientesConn = 0
 
 # CÓDIGO RODANDO 
 while True:
@@ -214,116 +239,68 @@ while True:
 	drawText()
 	
 	# CONTROLE DE CLIENTES
-	numClientesConn = int(len(addrList))
 	modoOperacao = process 
 	Clients(numClientesConn, modoOperacao)
-	
-	routine = 0
-	addrList = []
 
-	temp1 = time.time()
-
-	while True: 
-		temp2 = time.time()
-		if (temp2 - temp1 > 0.1): break
-
-		try:
-			dataSock, addr = sock.recvfrom(BUFFER_SIZE)
-			process = modosOperacao.index("REMOTO")
-
-			disconnected = 0			
-		
-			if dataSock != b'0' :
-
-				funcao  = b'3'
-				valor   = int(dataSock)
-				fim     = b'\n'	
-				addrList.append([0, addr, funcao, valor, fim])
-
-			else:
-				addrList.append([1, addr, 0,0,0])
-
-		except:
-			disconnected = disconnected + 1
-			if disconnected > 20:
-				disconnected = 0 
-				process = modosOperacao.index("DEMO") 
-				break
-		
-	addrList.sort()
-	print(addrList)
-
-	if process == modosOperacao.index("DEMO"):
-		angPos = angPos+1 if angPos+1 < 180 else 0 
-		funcao  = b'3'
-		valor   = angPos
-		fim     = b'\n'
-		piece_radial[angPos] = random.randint(100,150)
 
 	# SE E SOMENTE SE A COMPORT SERIAL ESTIVER DISNPONÍVEL
 	if comport.is_open is True:
-		
+
 		flagComport = True
-		for client in addrList:
+		if process ==  modosOperacao.index('DEMO'):
+			angPos = angPos+1 if angPos+1 < 180 else 1
+			#valor = serialSend(b'a', angPos, b'\n')
+			#valor = int(unpack('i', valor)[0])
+			piece_radial[angPos] = random.randint(100,150)
+	
+		try:
+			#dataSock, addr = sock.recvfrom(BUFFER_SIZE)
+			if socketServo.receive():
+				print("Recebeu angulo, envia para a serial e UDP" )
+				
+				valorSend = socketServo.dataSock
+				angulo = unpack('i', valorSend)[0]
+				#valorAng = serialSend(b'a', float(socketServo.dataSock), b'\n')
+				socketServo.send(valorSend)
+				flagReceive = True
 
-			if client[0] is 0:
-				try:
-					# CRIA O PACOTE COM AS INFORMAÇÕES PARA A SERIAL
-					send = pack('cic', client[2], client[3], client[4])
+			if socketUltra.receive():
+				print("Recebeu pedido de distancia, envia para a serial e UDP")
+				
+				valorSend = socketUltra.dataSock
+				#valorDist = serialSend(b'a', float(socketServo.dataSock), b'\n')
+				socketUltra.send(valorSend)
+				distancia = unpack('f', valorSend)[0]
 
-					# ENVIA O PACOTE PELA SERIAL
-					comport.write(send)
+				process = modosOperacao.index("REMOTO")
+				piece_radial[angulo]= int(distancia)
+				flagReceive = True
 
-					# LÊ A RESPOSTA DA SERIAL
-					data = comport.readline()
+		except:
+			flagReceive = False
+			print("Erro na transmissão UDP")
 
-					# FORMATA A RESPOSTA PARA OS DADOS EM PYTHON
-					data = str(data).split(',')
-					data[0] = data[0].replace("b'", '')
-					data[-1] = data[-1].replace("\\r\\n'",'')
-					
-					# DEFINIÇÃO FORMAL DA LEITURA
-					angulo    = client[3]
-					distancia = data[-1]
-
-					# TRANSFORMA OS VALORES EM ARRAY DE BYTES 
-					distancia = distancia.split(" ")
-					distancia.remove('')
-					distancia = [ int(x) for x in distancia]
-
-					# ARRAY DE BYTES
-					distancia = bytes(distancia)
-					print(distancia)
-
-					# CONVERTE PARA FLOAT 
-					distancia = unpack('f', distancia)
-					distancia = int(distancia[0])
-
-					# CONFIRMAÇÃO DE RECEBIMENTO EM BYTES -> PRINT
-					#print("Recebido de %s : %s -> Angulo= %s : Distancia Ard= %s : Distancia Mon= %s" %(addr, dataSock, angulo, distancia, addr[1] % 250 ))
-
-					distancia =  client[1][1] % 250 
-					piece_radial[angulo] = distancia
-
-					str_send = (str(angulo)+str(' ')+str(distancia)).encode()
-					sock.sendto(str_send, client[1])
-
-					msg_Padrao = str_send
+		if flagReceive == False:
+			disconnected = disconnected + 1
+			if disconnected == 20:
+				process = modosOperacao.index("DEMO")
+				disconnected = 0
+				numClientesConn = 0
+		else: 
+			disconnected = 0
+			numClientesConn = 1
+				
+		
+		flagReceive = False
 			
-				except:
-					print("SERIAL INVÁLIDA!")
 
-			else:
-				try:
-					sock.sendto(msg_Padrao, client[1])
-				except:
-					sock.sendto(str("0 0").encode(), client[1])
-					print("Sem entidade de controle")
-			print(msg_Padrao)
 
 	else:
 		flagComport = False
 		process = modosOperacao.index('DEMO')
+		angPos = angPos + 1 if angPos +1 < 180 else 1
+		angulo = angPos
+		piece_radial[angulo]= random.randint(60, 60+ angulo%90 )
 
 
 	for i in range(0,180,1):
@@ -331,3 +308,30 @@ while True:
 	
 	pygame.display.update()
 	clock.tick(120)
+
+
+
+def serialSend(funcao, valor, fim):
+
+	# CRIA O PACOTE COM AS INFORMAÇÕES PARA A SERIAL
+	send = pack('cic', funcao, valor, fim)
+
+	# ENVIA O QUADRO PELA SERIAL
+	comport.write(send)
+	time.sleep(0.005)
+
+	# LÊ A RESPOSTA DA SERIAL
+	data = comport.readline()
+
+	# FORMATA A RESPOSTA PARA OS DADOS EM PYTHON
+	data = str(data).split(' ')
+
+	data[0] = data[0].replace("b'", '')
+	data[-1] = data[-1].replace("\\r\\n'",'')
+	data.remove('')
+
+	data = [int(n) for n in data ]
+
+	valor = bytes(data)	
+
+	return valor

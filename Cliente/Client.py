@@ -1,5 +1,5 @@
 from math import sin, cos, radians
-from struct import unpack
+from struct import unpack, pack
 import pygame
 import random
 import socket   
@@ -23,7 +23,7 @@ except socket.error:
 
 
 # DEFINIÇÕES PARA AS DIMENSÕES DA TELA
-screen_dimensions = [20*40,20*15]
+screen_dimensions = [20*30,20*15]
 center = [screen_dimensions[0]/2, screen_dimensions[1]]
 
 
@@ -105,25 +105,6 @@ def drawConnection(str):
 	else: 
 		conn = drawRetangulo(font, [150, 30], str, cor.orange, [10,10] )
 	screen.blit(conn, [screen_dimensions[0]/2 - 75, 5])
-
-
-# SEND AND LISTEN - FUNÇÃO UDP 
-def sendAndListening(msg):	
-
-    #CODIFICA A MENSAGEM EM ARRAY DE BYTES
-    msg = bytearray(msg.encode())
-
-    #ENVIA A SOLICITAÇÃO
-    s.sendto(msg, (host, port))
-
-    #AGUARDA A RESPOSTA
-    d = s.recvfrom(MAX_MESSAGE_LENGTH)
-
-    #MENSAGEM RECEBIDA
-    reply = d[0]
-
-    print ('Servidor retornou: ' + str(reply))
-    return reply
 
 
 # INICIANDO PROCESSO NO PYGAME
@@ -240,21 +221,23 @@ while True:
 	if process != 0:
 		drawConnection("CONNECTED")
 		try:
-			# RECEBE OS VALORES DO SERVIDO - EXEMPLO [ ' 12 120 34 45']
-			reply = sendAndListening(str(angulo)).decode().split(' ')
-			#reply = int(reply[0])
-			desconnect = 0
-			'''
-			# TRANSFORMA OS VALORES EM ARRAY DE BYTES 
-			reply = bytes([ int(x) for x in reply ])
+			
+			anguloSend = pack('i', angulo)
+			s.sendto(anguloSend, ('127.0.0.1', port))
 
-			# CONVERTE PARA FLOAT 
-			ans = unpack('f', reply)
-			'''
-			# SALVA O VALOR DO ANGULO - CONVERTE FLOAT PARA INT 
-			piece_radial[angulo] = int(reply[1])
+			recAng = s.recvfrom(MAX_MESSAGE_LENGTH)[0]
 
-			print("O valor de %i é %i \n" %(angulo, piece_radial[angulo]))
+			distSend = pack('f', 220.0)
+			s.sendto(distSend, ('127.0.0.7', port+1))
+
+			recDist = s.recvfrom(MAX_MESSAGE_LENGTH)[0]
+			#recDist = int(recDist[0])
+			
+			recAng  = unpack('i', recAng)[0]
+			recDist = unpack('f', recDist)[0]
+
+			print ('Servidor retornou: %sº = %s' %(recAng, recDist) )
+			piece_radial[recAng] = recDist
 
 
 		except:
