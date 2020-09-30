@@ -9,7 +9,7 @@ import time
 
 # USE UDP_IP = '' TO CATH ALL IPS
 # USE UDP_PORT = ARBITRARY NUMBER 
-UDP_IP = '127.0.0.1'
+UDP_IP = ''
 UDP_PORT = 8080
 
 # DEFINE THE BUFFER SIZE
@@ -45,9 +45,11 @@ class SOCK:
 		self.timeout = timeout
 		socket.setdefaulttimeout(self.timout)
 
-	def send(self, msg):
+	def send(self, msg, addr = 0):
+		if addr == 0:
+			addr = self.addrConn
 		try:
-			self.sd.sendto(msg, self.addrConn)
+			self.sd.sendto(msg, addr)
 		except:
 			print("Erro para enviar")
 
@@ -59,10 +61,8 @@ class SOCK:
 		except:
 			return False
 
-socketServo = SOCK(('127.0.0.1', UDP_PORT), 1/10)
-socketUltra = SOCK(('127.0.0.7', UDP_PORT+1), 1/10)
-
-
+socketServo = SOCK(('', UDP_PORT), 1/10)
+socketUltra = SOCK(('', UDP_PORT+1), 1/10)
 
 
 # SERIAL DEFINIÇÕES 
@@ -204,8 +204,10 @@ angPos = 0
 angulo = 0
 
 disconnected = 0
-
 numClientesConn = 0
+
+time1 = 0
+time2 = 0
 
 # CÓDIGO RODANDO 
 while True:
@@ -252,29 +254,67 @@ while True:
 			#valor = serialSend(b'a', angPos, b'\n')
 			#valor = int(unpack('i', valor)[0])
 			piece_radial[angPos] = random.randint(100,150)
-	
-		try:
-			#dataSock, addr = sock.recvfrom(BUFFER_SIZE)
+
+		
+		send2Servo = []
+		send2Mirror = []
+		send2Distancia = []
+		
+		time1 = time.time()
+		numClientesConn = 0
+		while True:
+			time2 = time.time()
+			dif = time2 - time1
+			if dif > 0.05:
+				break
+
 			if socketServo.receive():
-				print("Recebeu angulo, envia para a serial e UDP" )
-				
-				valorSend = socketServo.dataSock
-				angulo = unpack('i', valorSend)[0]
-				#valorAng = serialSend(b'a', float(socketServo.dataSock), b'\n')
-				socketServo.send(valorSend)
-				flagReceive = True
-
-			if socketUltra.receive():
-				print("Recebeu pedido de distancia, envia para a serial e UDP")
-				
-				valorSend = socketUltra.dataSock
-				#valorDist = serialSend(b'a', float(socketServo.dataSock), b'\n')
-				socketUltra.send(valorSend)
-				distancia = unpack('f', valorSend)[0]
-
+				if socketServo.dataSock[0] == 97:
+					print("A")
+					send2Servo.append((socketServo.dataSock, socketServo.addrConn))
+					flagReceive = True
+					numClientesConn = numClientesConn + 1
+					
+				if socketServo.dataSock[0] == 109:
+					print('M')
+					send2Mirror.append(socketServo.addrConn)
+					numClientesConn = numClientesConn + 1
+	
+			if numClientesConn > 1 :
 				process = modosOperacao.index("REMOTO")
-				piece_radial[angulo]= int(distancia)
-				flagReceive = True
+			
+		try:
+			for data in send2Servo:
+				print("Recebeu angulo, envia para a serial e UDP" )
+				angulo = unpack('ci', data[0])[1]
+				#angulo = serialSend(b'a', float(socketServo.dataSock), b'\n')
+				socketServo.send(pack('i', angulo), data[1] )
+				
+				if socketUltra.receive():
+					print("Recebeu pedido de distancia, envia para a serial e UDP")
+				
+					valorDist = unpack('cf', socketUltra.dataSock)[1]
+					#valorDist = serialSend(b'a', float(socketServo.dataSock), b'\n')
+					socketUltra.send(pack('f', valorDist))
+					
+					process = modosOperacao.index("REMOTO")
+
+					piece_radial[angulo]= int(valorDist)
+					flagReceive = True
+
+			for mirrorAddr in send2Mirror:
+				print("Espelho solicitando dados de processo")
+				if angulo != 0  and valorDist != 0 :
+					try :
+						socketServo.send(pack('if', angulo, valorDist), mirrorAddr)
+					except:
+						print("Erro na transmissão do serviço espelho")
+				else:
+					socketServo.send(str("SemControlador").encode(), mirrorAddr)
+					print("Sem Controlador")
+		
+			angulo = 0 
+			valorDist = 0
 
 		except:
 			flagReceive = False
@@ -288,13 +328,9 @@ while True:
 				numClientesConn = 0
 		else: 
 			disconnected = 0
-			numClientesConn = 1
 				
-		
 		flagReceive = False
 			
-
-
 	else:
 		flagComport = False
 		process = modosOperacao.index('DEMO')

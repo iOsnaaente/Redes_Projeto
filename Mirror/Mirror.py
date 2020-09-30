@@ -1,7 +1,8 @@
 from math import sin, cos, radians
-from struct import unpack
+from struct import unpack, pack
+from random import randint
+from time import sleep
 import pygame
-import random
 import socket   
 import sys      
 
@@ -14,7 +15,7 @@ MAX_MESSAGE_LENGTH = 1024
 
 # TENTA CRIAR O SOCKET UDP - SEMELHANTE AO DE CPP
 try:	
-	socket.setdefaulttimeout(1/2)
+	socket.setdefaulttimeout(1)
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 except socket.error:
@@ -137,7 +138,7 @@ sliderPos = [posRel[0]/2 + 2, posRel[1]+1]
 flagSlider = False 
 
 auto_pos = 1
-desconnect = 0
+disconnect = 0
 distancia = 0
 
 dots = ''
@@ -188,45 +189,39 @@ while True:
 		drawConnection("CONNECTED")
 
 		try:
-			#CODIFICA A MENSAGEM EM ARRAY DE BYTES
-			msg = bytearray('0'.encode())
-			print(msg)
+			msg = pack('c', b'm')
+			s.sendto(msg, ('localhost', 8080))
 
-			#ENVIA A SOLICITAÇÃO
-			s.sendto(msg, (host, port))
+			reply = s.recvfrom(MAX_MESSAGE_LENGTH)
 
-			#AGUARDA A RESPOSTA
-			d = s.recvfrom(MAX_MESSAGE_LENGTH)
+			try:
+				reply = unpack('if', reply[0])
+				
+				angulo = reply[0]
+				distancia = reply[1]
 
-			#MENSAGEM RECEBIDA
-			reply = d[0]
+				print ('Servidor retornou: ' + str(reply))
 
-			print ('Servidor retornou: ' + str(reply))
-			reply = reply.decode().split(' ')
+				# SALVA O VALOR DO ANGULO - CONVERTE FLOAT PARA INT 
+				piece_radial[angulo] = distancia
+				disconnect = 0 
 
-			angulo = int(reply[0])
-			distancia = int(reply[1])
-
-
-			desconnect = 0
-
-			# SALVA O VALOR DO ANGULO - CONVERTE FLOAT PARA INT 
-			piece_radial[angulo] = distancia
-
-			print("O valor de %i é %i \n" %(angulo, piece_radial[angulo]))
-
+			except:
+				print(reply[0])
+				sleep(0.75)
+				disconnect =  disconnect + 1 
 		except:
-			desconnect = desconnect + 1
-			if desconnect%5 >0:
+			disconnect = disconnect + 1
+			if disconnect%5 >0:
 				dots = dots + "."
 			else: 
 				dots = "" 
 			drawConnection("CONNECTING"+dots)
-			print("Tentativa de conexão número %s" %desconnect)
+			print("Tentativa de conexão número %s" %disconnect)
 	
 		
-	if desconnect == 10:
-		desconnect = 0
+	if disconnect == 10: #10 segundos
+		disconnect = 0
 		process = 0 
 
 	# DESENHA NA TELA AS OPÇÕES - DEMO REMOTO AUTO 

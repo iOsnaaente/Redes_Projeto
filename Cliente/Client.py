@@ -3,6 +3,7 @@ from struct import unpack, pack
 import pygame
 import random
 import socket   
+import time
 import sys      
 
 
@@ -14,7 +15,7 @@ MAX_MESSAGE_LENGTH = 1024
 
 # TENTA CRIAR O SOCKET UDP - SEMELHANTE AO DE CPP
 try:	
-	socket.setdefaulttimeout(1/2)
+	socket.setdefaulttimeout(1)
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 except socket.error:
@@ -141,6 +142,9 @@ desconnect = 0
 
 dots = ''
 
+fDist = time.time()*100 % 100 +100
+print(fDist)
+
 while True:
 	# COLORIR O PLANO DE FUNDO COM A COR CINZA
 	screen.fill(cor.lightGray)
@@ -184,7 +188,7 @@ while True:
 		try:
 			angulo = angulo +1 if angulo < 180 else 1 
 			piece_radial[angulo] = abs(angulo*cos(radians(angulo))) + random.randint(-20,75) if piece_radial[angulo] < 250 else 250
-			print(piece_radial[angulo])
+			#print(piece_radial[angulo])
 		except:
 			pass
 	
@@ -222,12 +226,13 @@ while True:
 		drawConnection("CONNECTED")
 		try:
 			
-			anguloSend = pack('i', angulo)
+			anguloSend = pack('ci', b'a', angulo)
 			s.sendto(anguloSend, ('127.0.0.1', port))
 
 			recAng = s.recvfrom(MAX_MESSAGE_LENGTH)[0]
+			print(recAng)
 
-			distSend = pack('f', 220.0)
+			distSend = pack('cf', b'd', fDist)
 			s.sendto(distSend, ('127.0.0.7', port+1))
 
 			recDist = s.recvfrom(MAX_MESSAGE_LENGTH)[0]
@@ -251,7 +256,7 @@ while True:
 	else: 
 		drawConnection("DISCONNECTED")
 		
-	if desconnect == 20:
+	if desconnect == 10:
 		desconnect = 0
 		process = 0 
 
